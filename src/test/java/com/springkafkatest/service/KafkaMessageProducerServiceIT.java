@@ -40,14 +40,13 @@ import static org.springframework.kafka.test.hamcrest.KafkaMatchers.hasValue;
 public class  KafkaMessageProducerServiceIT {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaMessageProducerServiceIT.class);
+    public ObjectMapper mapper = new ObjectMapper();
 
     private static String TOPIC_NAME = "quickstart-events";
 
     @Autowired
     private KafkaMessageProducerService kafkaMessageProducerService;
-
     private KafkaMessageListenerContainer<String, UpdatedBrandEvent> container;
-
     private BlockingQueue<ConsumerRecord<String, String>> consumerRecords;
 
     @ClassRule
@@ -58,19 +57,15 @@ public class  KafkaMessageProducerServiceIT {
         consumerRecords = new LinkedBlockingQueue<>();
 
         ContainerProperties containerProperties = new ContainerProperties(TOPIC_NAME);
-
         Map<String, Object> consumerProperties = KafkaTestUtils.consumerProps(
                 "sender", "false", embeddedKafka.getEmbeddedKafka());
-
         DefaultKafkaConsumerFactory<String, UpdatedBrandEvent> consumer = new DefaultKafkaConsumerFactory<>(consumerProperties);
-
         container = new KafkaMessageListenerContainer<>(consumer, containerProperties);
         container.setupMessageListener((MessageListener<String, String>) record -> {
             LOGGER.debug("Listened message='{}'", record.toString());
             consumerRecords.add(record);
         });
         container.start();
-
         ContainerTestUtils.waitForAssignment(container, embeddedKafka.getEmbeddedKafka().getPartitionsPerTopic());
     }
 
@@ -85,15 +80,10 @@ public class  KafkaMessageProducerServiceIT {
                 "BrandMapCreatedEvent", "Brand1", "FIRM_A");
         kafkaMessageProducerService.send(updatedBrandEvent);
 
-        ConsumerRecord<String, String> received = consumerRecords.poll(10, TimeUnit.SECONDS);
-
-        ObjectMapper mapper = new ObjectMapper();
+        ConsumerRecord<String, String> received = consumerRecords.poll(20, TimeUnit.SECONDS);
         String json = mapper.writeValueAsString( updatedBrandEvent );
-        System.out.println(json);
-
+        LOGGER.info("json file",json)
         assertThat(received, hasValue(json));
-        System.out.println(received.value());
-
         assertThat(received).has(key(null));
     }
 
